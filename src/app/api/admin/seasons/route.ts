@@ -1,69 +1,39 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdminOrModerator } from "@/lib/auth-helpers";
-import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 
-export async function GET(req: Request){
-  const { searchParams } = new URL(req.url);
-  const leagueId = searchParams.get("leagueId") || "";
-  if (!leagueId) return NextResponse.json({ items: [] });
-  const items = await prisma.season.findMany({
-    where: { leagueId },
-    orderBy: { startAt: "desc" },
-    select: { id: true, label: true, leagueId: true },
-  });
-  return NextResponse.json({ items });
-}
-
+/**
+ * GET /api/admin/seasons?leagueId=LEAGUE_TABLE_ID&all=1
+ * - Sadece ADMIN/MODERATOR erişimi
+ * - leagueId yoksa tüm sezonları döner (admin listelemeleri için)
+ * - all=1 verilmezse sadece aktif sezonlar gelir
+ */
 export async function GET(req: Request) {
   const me = await requireAdminOrModerator();
   if (!me) return NextResponse.json({ error: "forbidden" }, { status: 403 });
 
   const { searchParams } = new URL(req.url);
-  const onlyActive = searchParams.get("active");
-  const id = searchParams.get("id");
+  const leagueId = searchParams.get("leagueId") || "";
+  const includeAll = searchParams.get("all") === "1";
 
-  // Tek sezon detayı + oyuncular
-  if (id) {
-    const s = await prisma.season.findUnique({
-      where: { id },
-      include: {
-        league: true,
-        memberships: { include: { player: true } },
-      },
-    });
-    if (!s) return NextResponse.json({ error: "Sezon bulunamadı" }, { status: 404 });
+  const where: any = {};
+  if (leagueId) where.leagueId = leagueId;
+  if (!includeAll) where.isActive = true;
 
-    return NextResponse.json({
-      item: {
-        id: s.id,
-        label: s.label,
-        leagueName: s.league.name,
-        playerCount: s.memberships.length,
-        players: s.memberships.map((m) => ({
-          id: m.player.id,
-          name: m.player.displayName,
-        })),
-      },
-    });
-  }
-
-  // Liste
-  const seasons = await prisma.season.findMany({
-    where: onlyActive ? { isActive: true } : undefined,
-    orderBy: [{ startAt: "desc" }],
-    include: { league: true, memberships: true },
+  const items = await prisma.season.findMany({
+    where,
+    orderBy: { startAt: "desc" },
+    select: {
+      id: true,
+      label: true,
+      leagueId: true,
+      isActive: true,
+      year: true,
+      index: true,
+      startAt: true,
+      endAt: true,
+    },
   });
-
-  const items = seasons.map((s) => ({
-    id: s.id,
-    label: s.label,
-    leagueName: s.league.name,
-    startAt: s.startAt,
-    endAt: s.endAt,
-    playerCount: s.memberships.length,
-  }));
 
   return NextResponse.json({ items });
 }
