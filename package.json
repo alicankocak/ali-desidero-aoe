@@ -3,18 +3,11 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "dev": "next dev",
-    "start": "next start",
-    "build": "next build",
-    "lint": "next lint",
-    "vercel-build": "next build",
-    "db:push": "prisma db push",
-    "db:reset": "prisma migrate reset --force",
-    "seed": "tsx prisma/seed.ts",
-    "seed:matches": "tsx prisma/seed-matches.ts",
-    "db:reseed": "npm run db:push && npm run seed && npm run seed:matches",
-    "db:seed": "npm run seed && npm run seed:matches",
-    "seed:match-extras": "tsx prisma/seed-match-extras.ts"
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start -p ${PORT:-3000}",
+  "vercel-build": "next build",
+  "lint": "next lint"
   },
   "prisma": {
     "seed": "npm run db:seed"
