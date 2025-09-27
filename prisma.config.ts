@@ -8,5 +8,4 @@ export default defineConfig({
     path: path.join("prisma", "migrations"),
   },
   // seed komutunuz varsa koruyun/yazın:
-  seed: "tsx prisma/seed.ts",
 });
