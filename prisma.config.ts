@@ -1,11 +1,7 @@
-import "dotenv/config";               // <-- .env'yi yükle
-import path from "node:path";
-import { defineConfig } from "prisma/config";
+import { defineConfig } from "@prisma/internals";
 
 export default defineConfig({
-  schema: path.join("prisma", "schema.prisma"),
-  migrations: {
-    path: path.join("prisma", "migrations"),
-  },
-  // seed komutunuz varsa koruyun/yazın:
+  schema: "prisma/schema.prisma",
+  // seed alanı Prisma config'te GEÇERSİZ. (Prisma 7+)
+  // Seeding'i yalnızca lokal geliştirmede npm script ile çalıştır.
 });

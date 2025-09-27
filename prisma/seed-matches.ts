@@ -2,27 +2,22 @@ import { PrismaClient, League, Prisma } from "@prisma/client";
 const prisma = new PrismaClient();
 
 type MatchInput = Prisma.MatchCreateInput & {
-  league: League;        // enum net olsun
+  league: League;
   season: string;
-  round: number;         // composite unique için şart
+  round: number;
   homeId: string;
   awayId: string;
   map?: string | null;
 };
 
 async function main() {
-  // En az 2 oyuncu çek
-  const players = await prisma.player.findMany({
-    take: 2,
-    orderBy: { createdAt: "asc" },
-  });
+  const players = await prisma.player.findMany({ take: 2, orderBy: { createdAt: "asc" } });
   if (players.length < 2) {
     console.log("Seed-matches: yeterli oyuncu yok, çıkılıyor.");
     return;
   }
   const [p1, p2] = players;
 
-  // Örnek maç(lar)
   const toMake: MatchInput[] = [
     {
       league: "LIG1",
@@ -43,7 +38,6 @@ async function main() {
 
   for (const m of toMake) {
     await prisma.match.upsert({
-      // Şemanızdaki composite unique: @@unique([season, league, homeId, awayId, round])
       where: {
         season_league_homeId_awayId_round: {
           season: m.season,
