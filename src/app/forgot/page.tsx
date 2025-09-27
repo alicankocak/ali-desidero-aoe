@@ -1,0 +1,1 @@
+export default function ForgotPage(){return <div className='mx-auto max-w-md space-y-4 rounded-2xl bg-white p-6 shadow'><h1 className='text-lg font-semibold'>Şifremi Unuttum</h1><p className='text-sm text-gray-600'>Buraya e-posta reset akışı gelecek.</p></div>}

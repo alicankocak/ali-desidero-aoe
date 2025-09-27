@@ -1,0 +1,165 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
+import { Button } from "@/components/ui/button";
+import ThemeToggle from "@/components/theme-toggle";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Sheet, SheetTrigger, SheetContent, SheetHeader } from "@/components/ui/sheet";
+import { Settings } from "lucide-react";
+
+type MenuItem = { href: string; label: string; adminOnly?: boolean };
+const items: MenuItem[] = [
+  { href: "/league", label: "Lig Tablosu" },
+  { href: "/matches", label: "Maçlar" },
+  { href: "/stats", label: "İstatistikler" },
+  { href: "/players", label: "Oyuncular" },
+  { href: "/news", label: "Haberler" },
+  { href: "/build-orders", label: "Build Orderlar" },
+  { href: "/legendary", label: "Efsane Maçlar" },
+  { href: "/civs", label: "Irklar" },
+  { href: "/admin", label: "Admin", adminOnly: true },
+];
+
+type Me = {
+  id: string | null;
+  displayName: string;
+  avatarUrl: string | null;
+  roles: string[];           // ["ADMIN","PLAYER",...]
+  favoriteCiv: string | null; // "Gurjaras" vb.
+};
+
+export default function Header() {
+  const pathname = usePathname();
+  const { data: session, status } = useSession();
+
+  const [me, setMe] = useState<Me | null>(null);
+  const menu = useMemo(
+    () => items.filter((it) => !it.adminOnly || status === "authenticated"),
+    [status]
+  );
+
+  useEffect(() => {
+    let ignore = false;
+    async function load() {
+      if (status !== "authenticated") { setMe(null); return; }
+      const res = await fetch("/api/me", { cache: "no-store" });
+      if (!res.ok) { setMe(null); return; }
+      const d = await res.json();
+      if (!ignore) {
+        setMe({
+          id: d.playerId ?? null,
+          displayName: d.displayName,
+          avatarUrl: d.avatarUrl ?? null,
+          roles: d.roles ?? [],
+          favoriteCiv: d.favoriteCiv ?? null,
+        });
+      }
+    }
+    load();
+    return () => { ignore = true; };
+  }, [status]);
+
+  const nick = me?.displayName ?? session?.user?.name ?? "Kullanıcı";
+  const avatarUrl = me?.avatarUrl ?? (session?.user as any)?.image ?? null;
+  const roleLine = (me?.roles?.length ? me.roles.join(" • ") : "PLAYER");
+
+  // 8px ikon (placeholder): küçük yuvarlak nokta
+  function CivPill({ name }: { name: string }) {
+    return (
+      <span className="inline-flex items-center gap-2 text-sm">
+        <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+        <span className="font-medium">{name}</span>
+      </span>
+    );
+  }
+
+  return (
+    <header className="border-b bg-white dark:bg-zinc-900">
+      <div className="mx-auto flex max-w-6xl items-center justify-between p-3">
+        <div className="flex items-center gap-4">
+          <Link href="/" className="font-semibold">AOE2 Lig</Link>
+          <nav className="hidden gap-3 sm:flex">
+            {menu.map((it) => {
+              const active = pathname?.startsWith(it.href);
+              return (
+                <Link
+                  key={it.href}
+                  href={it.href}
+                  className={
+                    "text-sm transition-colors hover:text-foreground " +
+                    (active ? "font-medium underline underline-offset-4" : "text-muted-foreground")
+                  }
+                >
+                  {it.label}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+
+          {status === "authenticated" ? (
+            <Sheet>
+              <SheetTrigger asChild>
+                <button aria-label="Kullanıcı menüsü" className="group relative inline-flex items-center">
+                  <Avatar className="h-8 w-8 ring-1 ring-border">
+                    {avatarUrl ? <AvatarImage src={avatarUrl} alt={nick} /> : <AvatarFallback>{nick.slice(0,1).toUpperCase()}</AvatarFallback>}
+                  </Avatar>
+                </button>
+              </SheetTrigger>
+
+              <SheetContent side="right">
+                <SheetHeader>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-10 w-10 ring-1 ring-border">
+                      {avatarUrl ? <AvatarImage src={avatarUrl} alt={nick} /> : <AvatarFallback>{nick.slice(0,1).toUpperCase()}</AvatarFallback>}
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="truncate text-base font-semibold">{nick}</div>
+                      <div className="truncate text-xs text-muted-foreground">{roleLine}</div>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                {/* Civ satırı (etiketsiz, 8px ikon + isim) */}
+                {me?.favoriteCiv && (
+                  <div className="mb-4">
+                    <CivPill name={me.favoriteCiv} />
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <Link
+                    href={me?.id ? `/players/${me.id}` : "/players"}
+                    className="inline-flex w-full items-center gap-2 rounded-md px-2 py-2 text-sm hover:bg-muted"
+                  >
+                    <Settings className="h-4 w-4" />
+                    Profil ayarları
+                  </Link>
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => signOut({ callbackUrl: "/" })}
+                  >
+                    Çıkış Yap
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <>
+              <Link href="/login"><Button size="sm" variant="outline">Giriş Yap</Button></Link>
+              <Link href="/register"><Button size="sm">Üye Ol</Button></Link>
+            </>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}

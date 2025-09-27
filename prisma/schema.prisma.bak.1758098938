@@ -1,0 +1,139 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String?
+  name         String?
+  avatarUrl    String?
+  isActive     Boolean  @default(true)
+  roles        UserRole[]
+  player       Player?
+  news         News[]
+  comments     MatchComment[]   // <-- BUNU UNUTMA
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model Role {
+  id    String   @id @default(cuid())
+  name  String   @unique   // ADMIN, MODERATOR, EDITOR, PLAYER
+  users UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User @relation(fields: [userId], references: [id])
+  role   Role @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+enum League {
+  LIG1
+  LIG2
+}
+
+enum VideoType {
+  YOUTUBE
+  TWITCH
+}
+
+enum NewsCategory {
+  GENERAL
+  MATCH
+  ANNOUNCEMENT
+  INTERVIEW
+  STRATEGY
+}
+
+model News {
+  id        String        @id @default(cuid())
+  title     String
+  slug      String        @unique
+  excerpt   String?
+  content   String
+  category  NewsCategory
+  year      Int
+  tags      String[]
+  authorId  String?
+  author    User?         @relation(fields: [authorId], references: [id])
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@index([category, year])
+  @@index([createdAt])
+}
+
+model Player {
+  id             String   @id @default(cuid())
+  userId         String?  @unique
+  displayName    String
+  currentLeague  League?
+  activeInLeague Boolean  @default(false)
+  favoriteCiv    String?
+  favoriteUnit   String?
+  preferredRole  String?
+  bio            String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user        User?       @relation(fields: [userId], references: [id])
+  homeMatches Match[]     @relation("HomeMatches")
+  awayMatches Match[]     @relation("AwayMatches")
+  videos      VideoLink[]
+}
+
+model Match {
+  id          String         @id @default(cuid())
+  league      League
+  season      String
+  round       Int?
+  playedAt    DateTime?
+  homeId      String
+  awayId      String
+  home        Player         @relation("HomeMatches", fields: [homeId], references: [id])
+  away        Player         @relation("AwayMatches", fields: [awayId], references: [id])
+  homeWins    Int            @default(0)     // 0..2
+  awayWins    Int            @default(0)     // 0..2
+  homeCiv     String?
+  awayCiv     String?
+  durationSec Int?
+  vodUrl      String?
+  comments    MatchComment[]                 // 👈 maç yorumları
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@unique([season, league, homeId, awayId])
+  @@index([league, season])
+}
+
+model MatchComment {
+  id         String   @id @default(cuid())
+  matchId    String
+  match      Match    @relation(fields: [matchId], references: [id])
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id])
+  content    String
+  createdAt  DateTime @default(now())
+}
+
+model VideoLink {
+  id        String   @id @default(cuid())
+  playerId  String
+  player    Player   @relation(fields: [playerId], references: [id])
+  type      VideoType
+  url       String
+  title     String?
+  createdAt DateTime @default(now())
+
+  @@index([playerId, createdAt])
+}

@@ -1,0 +1,235 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  email        String         @unique
+  passwordHash String?
+  name         String?
+  avatarUrl    String?
+  isActive     Boolean        @default(true)
+  roles        UserRole[]
+  player       Player?
+  news         News[]
+  comments     MatchComment[] // kullanıcı yorumları
+  auditLogs    AuditLog[]     @relation("AuditLogUser")
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model Role {
+  id    String     @id @default(cuid())
+  name  String     @unique // ADMIN, MODERATOR, EDITOR, PLAYER
+  users UserRole[]
+}
+
+model UserRole {
+  userId String
+  roleId String
+  user   User   @relation(fields: [userId], references: [id])
+  role   Role   @relation(fields: [roleId], references: [id])
+
+  @@id([userId, roleId])
+}
+
+enum League {
+  LIG1
+  LIG2
+}
+
+enum VideoType {
+  YOUTUBE
+  TWITCH
+}
+
+enum NewsCategory {
+  GENERAL
+  MATCH
+  ANNOUNCEMENT
+  INTERVIEW
+  STRATEGY
+}
+
+model News {
+  id        String       @id @default(cuid())
+  title     String
+  slug      String       @unique
+  excerpt   String?
+  content   String
+  category  NewsCategory
+  year      Int
+  tags      String[]
+  authorId  String?
+  author    User?        @relation(fields: [authorId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@index([category, year])
+  @@index([createdAt])
+}
+
+model Player {
+  id             String   @id @default(cuid())
+  userId         String?  @unique
+  displayName    String
+  currentLeague  League?
+  activeInLeague Boolean  @default(false)
+  favoriteCiv    String?
+  favoriteUnit   String?
+  preferredRole  String?
+  bio            String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user             User?              @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  homeMatches      Match[]            @relation("HomeMatches")
+  awayMatches      Match[]            @relation("AwayMatches")
+  videos           VideoLink[]
+  SeasonMembership SeasonMembership[]
+}
+
+model Match {
+  id          String         @id @default(cuid())
+  league      League
+  season      String
+  round       Int?
+  playedAt    DateTime?
+  homeId      String
+  awayId      String
+  home        Player         @relation("HomeMatches", fields: [homeId], references: [id])
+  away        Player         @relation("AwayMatches", fields: [awayId], references: [id])
+  homeWins    Int            @default(0) // 0..2
+  awayWins    Int            @default(0) // 0..2
+  homeCiv     String?
+  awayCiv     String?
+  durationSec Int?
+  map         String?
+  vodUrl      String?
+  comments    MatchComment[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  // Sezon (admin) ilişkisi — sezon silinince maçlar da silinsin
+  seasonRelId String?
+  seasonRel   Season? @relation("SeasonMatches", fields: [seasonRelId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  // ——— Index & Benzersiz Kısıtlar ———
+  // Aynı sezon/lig içinde aynı iki oyuncunun aynı turda tek kayıt olsun:
+  @@unique([season, league, homeId, awayId, round])
+  @@index([league, season, round])
+  @@index([playedAt])
+  @@index([seasonRelId, round])
+}
+
+model MatchComment {
+  id        String   @id @default(cuid())
+  matchId   String
+  match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+  text      String
+  createdAt DateTime @default(now())
+
+  @@index([matchId, createdAt])
+}
+
+model VideoLink {
+  id        String    @id @default(cuid())
+  playerId  String
+  player    Player    @relation(fields: [playerId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  type      VideoType
+  url       String
+  title     String?
+  createdAt DateTime  @default(now())
+
+  @@index([playerId, createdAt])
+}
+
+// =================== Admin Panel Modelleri ===================
+
+model LeagueTable {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seasons Season[]
+}
+
+model Season {
+  id       String      @id @default(cuid())
+  leagueId String
+  league   LeagueTable @relation(fields: [leagueId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  /// "2025-1" gibi
+  label String
+  year  Int
+  index Int
+
+  startAt  DateTime
+  endAt    DateTime
+  isActive Boolean  @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships SeasonMembership[]
+  fixtures    Fixture[]
+  matches     Match[]            @relation("SeasonMatches")
+
+  @@unique([leagueId, label])
+  @@index([isActive])
+  @@index([label])
+}
+
+model SeasonMembership {
+  id       String @id @default(cuid())
+  seasonId String
+  playerId String
+
+  season Season @relation(fields: [seasonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Restrict, onUpdate: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([seasonId, playerId])
+  @@index([playerId])
+}
+
+model Fixture {
+  id        String   @id @default(cuid())
+  name      String
+  map       String
+  seasonId  String
+  season    Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([seasonId, isActive])
+}
+
+enum AuditEntity {
+  LEAGUE
+  FIXTURE
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  entity    AuditEntity
+  entityId  String
+  userId    String?
+  user      User?       @relation(name: "AuditLogUser", fields: [userId], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  action    String
+  detail    Json?
+  createdAt DateTime    @default(now())
+
+  @@index([entity, entityId, createdAt])
+}
