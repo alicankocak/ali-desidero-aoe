@@ -1,26 +1,62 @@
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, League } from "@prisma/client";
 const prisma = new PrismaClient();
 
-async function main(){
-  const players = await prisma.player.findMany({ orderBy: { createdAt: "asc" }, take: 4 });
-  if(players.length < 2) { console.log("Yeterli oyuncu yok."); return; }
+async function main() {
+  // İki oyuncu çek (örnek)
+  const players = await prisma.player.findMany({
+    take: 2,
+    orderBy: { createdAt: "asc" },
+  });
+  if (players.length < 2) {
+    console.log("Seed-matches: yeterli oyuncu yok, çıkılıyor.");
+    return;
+  }
+  const [p1, p2] = players;
 
-  const [p1, p2, p3, p4] = players;
-  const season = "2025-1";
-
+  // Örnek maçlar (round ZORUNLU)
   const toMake = [
-    { homeId: p1.id, awayId: p2.id, league: "LIG1" as const, season, round: 1, homeWins: 2, awayWins: 0, playedAt: new Date() },
-    { homeId: p3.id, awayId: p4.id, league: "LIG1" as const, season, round: 1, homeWins: 1, awayWins: 1, playedAt: new Date() },
+    {
+      league: "LIG1" as League,
+      season: "2025-1",
+      round: 1,
+      homeId: p1.id,
+      awayId: p2.id,
+      playedAt: new Date(),
+      homeWins: 2,
+      awayWins: 0,
+      homeCiv: "Franks",
+      awayCiv: "Aztecs",
+      durationSec: 1543,
+      vodUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      map: "Arabia",
+    },
   ];
 
-  for(const m of toMake){
+  for (const m of toMake) {
     await prisma.match.upsert({
-      where: { season_league_homeId_awayId: { season: m.season, league: m.league, homeId: m.homeId, awayId: m.awayId } },
+      // DİKKAT: Şemadaki composite unique bu!
+      where: {
+        season_league_homeId_awayId_round: {
+          season: m.season,
+          league: m.league,
+          homeId: m.homeId,
+          awayId: m.awayId,
+          round: m.round!, // round gerekli
+        },
+      },
       update: {},
-      create: m
+      create: m,
     });
   }
-  console.log("Seed matches eklendi.");
+
+  console.log("Seed-matches: örnek maç(lar) eklendi.");
 }
 
-main().then(()=>prisma.$disconnect()).catch(async e=>{console.error(e);await prisma.$disconnect();process.exit(1);});
+main()
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
