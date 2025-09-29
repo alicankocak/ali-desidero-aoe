@@ -33,3 +33,4 @@ prisma/dev.db-journal
 
 # Misc
 *.local
+prisma/seed-matches.ts
