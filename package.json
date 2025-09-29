@@ -10,7 +10,8 @@
     "lint": "next lint",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:matches": "tsx prisma/seed-matches.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "prebuild": "prisma generate"
   },
   "prisma": {
     "seed": "npm run db:seed"
