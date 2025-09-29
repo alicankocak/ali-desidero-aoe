@@ -37,6 +37,8 @@
     "node_modules",
     "prisma/**/*",
     "scripts/**/*",
-    ".next"
+    ".next",
+    "prisma/**/*.ts",
+    "scripts/**/*.ts"
   ]
 }
