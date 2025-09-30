@@ -31,14 +31,12 @@
   },
   "include": [
     "next-env.d.ts",
-    "src/**/*"
+    "src/**/*",
+    ".next/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules",
-    "prisma/**/*",
-    "scripts/**/*",
-    ".next",
-    "prisma/**/*.ts",
-    "scripts/**/*.ts"
+    "prisma/*.ts",
+    "scripts/**/*.ts",
+    ".next/types/**/*.ts"
   ]
 }
